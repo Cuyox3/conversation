@@ -2,7 +2,7 @@
 
 Crea la voz de un usuario a partir de un audio y genera voz desde texto, con Python.
 
-**Demo:** https://cuyox3.github.io/conversion/
+**Demo:** https://cuyox3.github.io/conversation/
 
 ## Qué hace
 
