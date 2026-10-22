@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conversión — Clona tu voz</title>
+  <meta name="description" content="Crea el perfil de tu voz a partir de un audio y genera voz desde texto. Análisis de voz en Python ejecutado en el navegador con Pyodide.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <p class="eyebrow">Python · Pyodide · XTTS-v2</p>
+      <h1>Conversión <span>de voz</span></h1>
+      <p class="lead">Sube o graba un audio con tu voz, Python la analiza y crea tu perfil de voz. Después escribe cualquier texto y escúchalo con esa voz.</p>
+      <p id="estado-python" class="pill pill--cargando"><span class="punto"></span>Cargando Python en el navegador…</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- 1. Crear voz -->
+    <section class="tarjeta" id="crear">
+      <h2><span class="paso">1</span>Crea tu voz</h2>
+      <p class="ayuda">Usa entre 6 y 30 segundos de voz clara, sin música ni ruido de fondo. Lee un párrafo con naturalidad.</p>
+
+      <label class="campo">
+        <span>Nombre de la voz</span>
+        <input id="nombre-voz" type="text" maxlength="60" placeholder="Ej. Arturo" autocomplete="off">
+      </label>
+
+      <div class="fuente">
+        <label class="soltar" id="zona-soltar">
+          <input id="archivo" type="file" accept="audio/*">
+          <strong>Sube un audio</strong>
+          <small>WAV, MP3, OGG, M4A o WebM — arrastra aquí o haz clic</small>
+        </label>
+        <div class="grabar">
+          <button id="btn-grabar" class="btn btn--grabar" type="button">● Grabar</button>
+          <small id="tiempo-grabacion">Máx. 30 s</small>
+        </div>
+      </div>
+
+      <div id="vista-previa" class="oculto">
+        <audio id="audio-muestra" controls></audio>
+        <button id="btn-analizar" class="btn btn--primario" type="button" disabled>Analizar y crear voz</button>
+      </div>
+      <p id="msg-crear" class="mensaje" role="status"></p>
+    </section>
+
+    <!-- 2. Voces -->
+    <section class="tarjeta" id="voces">
+      <h2><span class="paso">2</span>Tus voces</h2>
+      <div id="lista-voces" class="lista-voces"><p class="vacio">Aún no has creado ninguna voz.</p></div>
+      <div id="detalle-voz" class="oculto">
+        <div class="metricas" id="metricas"></div>
+        <canvas id="grafica-tono" height="160" aria-label="Contorno de tono de la muestra"></canvas>
+      </div>
+    </section>
+
+    <!-- 3. Texto a voz -->
+    <section class="tarjeta" id="hablar">
+      <h2><span class="paso">3</span>Texto a voz</h2>
+      <label class="campo">
+        <span>Texto</span>
+        <textarea id="texto" rows="4" maxlength="1000">Hola, esta es mi voz generada a partir de texto con Python.</textarea>
+      </label>
+
+      <div class="modo" role="radiogroup" aria-label="Motor de voz">
+        <label><input type="radio" name="motor" value="navegador" checked> <b>Navegador</b> — instantáneo, adapta tono y velocidad a tu perfil</label>
+        <label><input type="radio" name="motor" value="servidor"> <b>Clonación neuronal</b> — XTTS-v2 en tu servidor Python, imita tu timbre</label>
+      </div>
+
+      <div id="ajustes-navegador" class="ajustes">
+        <label class="campo"><span>Voz base del sistema</span><select id="voz-sistema"></select></label>
+        <label class="campo"><span>Tono <output id="out-pitch">1.00</output></span><input id="pitch" type="range" min="0.5" max="1.5" step="0.01" value="1"></label>
+        <label class="campo"><span>Velocidad <output id="out-rate">1.00</output></span><input id="rate" type="range" min="0.6" max="1.6" step="0.01" value="1"></label>
+      </div>
+
+      <div id="ajustes-servidor" class="ajustes oculto">
+        <label class="campo"><span>URL del servidor</span><input id="url-servidor" type="url" placeholder="http://localhost:8000"></label>
+        <label class="campo"><span>Idioma</span>
+          <select id="idioma"><option value="es">Español</option><option value="en">Inglés</option><option value="pt">Portugués</option><option value="fr">Francés</option><option value="it">Italiano</option><option value="de">Alemán</option></select>
+        </label>
+        <button id="btn-probar" class="btn" type="button">Probar conexión</button>
+      </div>
+
+      <div class="acciones">
+        <button id="btn-hablar" class="btn btn--primario" type="button">▶ Generar voz</button>
+        <button id="btn-detener" class="btn" type="button">■ Detener</button>
+      </div>
+      <div id="resultado" class="oculto">
+        <audio id="audio-resultado" controls></audio>
+        <a id="descargar" class="btn" download="voz-generada.wav">Descargar WAV</a>
+      </div>
+      <p id="msg-hablar" class="mensaje" role="status"></p>
+    </section>
+
+    <section class="tarjeta como">
+      <h2>¿Cómo funciona?</h2>
+      <ol>
+        <li><b>Python en tu navegador.</b> La página carga <a href="https://pyodide.org" target="_blank" rel="noopener">Pyodide</a> con NumPy y ejecuta <code>python/analisis_voz.py</code>. Tu audio nunca sale de tu equipo.</li>
+        <li><b>Perfil de voz.</b> El algoritmo YIN estima el tono por cada 10 ms; la envolvente de energía da la velocidad en sílabas por segundo y el centroide espectral el brillo del timbre.</li>
+        <li><b>Texto a voz.</b> En modo navegador, el perfil elige la voz base (masculina o femenina) y ajusta tono y velocidad de la Web Speech API.</li>
+        <li><b>Clonación neuronal.</b> El servidor FastAPI de <code>server/</code> usa Coqui XTTS-v2 para hablar con tu timbre a partir de unos segundos de muestra.</li>
+      </ol>
+      <p class="ayuda">Usa solo tu propia voz o la de personas que te hayan dado permiso.</p>
+    </section>
+  </main>
+
+  <footer class="wrap pie">
+    Hecho por <a href="https://github.com/Cuyox3" target="_blank" rel="noopener">Arturo Cid Ruiz</a> ·
+    <a href="https://github.com/Cuyox3/conversion" target="_blank" rel="noopener">Código fuente</a>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>

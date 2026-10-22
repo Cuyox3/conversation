@@ -1,0 +1,5 @@
+numpy>=1.26
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+coqui-tts>=0.24
