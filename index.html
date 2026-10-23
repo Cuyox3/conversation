@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Conversión — Clona tu voz</title>
-  <meta name="description" content="Crea el perfil de tu voz a partir de un audio y genera voz desde texto. Análisis de voz en Python ejecutado en el navegador con Pyodide.">
+  <meta name="description" content="Clona tu voz, genera voz desde texto, cambia tu voz y verifica audios generados. Procesamiento de voz en Python ejecutado en el navegador con Pyodide.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,10 +13,13 @@
 <body>
   <header class="hero">
     <div class="wrap">
-      <p class="eyebrow">Python · Pyodide · XTTS-v2</p>
+      <p class="eyebrow">Python · Pyodide · XTTS-v2 · Chatterbox</p>
       <h1>Conversión <span>de voz</span></h1>
-      <p class="lead">Sube o graba un audio con tu voz, Python la analiza y crea tu perfil de voz. Después escribe cualquier texto y escúchalo con esa voz.</p>
+      <p class="lead">Clona tu voz con unos segundos de audio, conviértela en texto a voz, transforma grabaciones a otra voz y comprueba si un audio fue generado aquí.</p>
       <p id="estado-python" class="pill pill--cargando"><span class="punto"></span>Cargando Python en el navegador…</p>
+      <nav class="indice" aria-label="Secciones">
+        <a href="#crear">Crear voz</a><a href="#hablar">Texto a voz</a><a href="#cambiar">Cambiador</a><a href="#verificar">Verificar</a>
+      </nav>
     </div>
   </header>
 
@@ -24,28 +27,47 @@
     <!-- 1. Crear voz -->
     <section class="tarjeta" id="crear">
       <h2><span class="paso">1</span>Crea tu voz</h2>
-      <p class="ayuda">Usa entre 6 y 30 segundos de voz clara, sin música ni ruido de fondo. Lee un párrafo con naturalidad.</p>
+      <div class="pestanas" role="tablist">
+        <button class="pestana activa" type="button" role="tab" aria-selected="true" data-panel="panel-clonar">Clonar de un audio</button>
+        <button class="pestana" type="button" role="tab" aria-selected="false" data-panel="panel-disenar">Diseñar una voz</button>
+      </div>
 
       <label class="campo">
         <span>Nombre de la voz</span>
         <input id="nombre-voz" type="text" maxlength="60" placeholder="Ej. Arturo" autocomplete="off">
       </label>
 
-      <div class="fuente">
-        <label class="soltar" id="zona-soltar">
-          <input id="archivo" type="file" accept="audio/*">
-          <strong>Sube un audio</strong>
-          <small>WAV, MP3, OGG, M4A o WebM — arrastra aquí o haz clic</small>
-        </label>
-        <div class="grabar">
-          <button id="btn-grabar" class="btn btn--grabar" type="button">● Grabar</button>
-          <small id="tiempo-grabacion">Máx. 30 s</small>
+      <div id="panel-clonar">
+        <p class="ayuda">Usa entre 10 y 30 segundos de voz clara, sin música ni ruido de fondo. Lee un párrafo con naturalidad.</p>
+        <div class="fuente">
+          <label class="soltar" id="zona-soltar">
+            <input id="archivo" type="file" accept="audio/*">
+            <strong>Sube un audio</strong>
+            <small>WAV, MP3, OGG, M4A o WebM — arrastra aquí o haz clic</small>
+          </label>
+          <div class="grabar">
+            <button id="btn-grabar" class="btn btn--grabar" type="button">● Grabar</button>
+            <small id="tiempo-grabacion">Máx. 30 s</small>
+          </div>
         </div>
+        <div id="vista-previa" class="oculto">
+          <audio id="audio-muestra" controls></audio>
+        </div>
+        <label class="consentimiento">
+          <input id="consentimiento" type="checkbox">
+          <span>Confirmo que esta es mi voz, o que su dueño me dio permiso para clonarla.</span>
+        </label>
+        <button id="btn-analizar" class="btn btn--primario" type="button" disabled>Analizar y crear voz</button>
       </div>
 
-      <div id="vista-previa" class="oculto">
-        <audio id="audio-muestra" controls></audio>
-        <button id="btn-analizar" class="btn btn--primario" type="button" disabled>Analizar y crear voz</button>
+      <div id="panel-disenar" class="oculto">
+        <p class="ayuda">Crea una voz sin grabar nada, ajustando sus rasgos. Sirve para el texto a voz del navegador y para el cambiador.</p>
+        <div class="ajustes">
+          <label class="campo"><span>Tono medio <output id="out-d-tono">150 Hz</output></span><input id="d-tono" type="range" min="70" max="320" step="1" value="150"></label>
+          <label class="campo"><span>Velocidad <output id="out-d-vel">5.5 síl/s</output></span><input id="d-vel" type="range" min="3" max="8" step="0.1" value="5.5"></label>
+          <label class="campo"><span>Expresividad <output id="out-d-exp">2.0 st</output></span><input id="d-exp" type="range" min="0.5" max="5" step="0.1" value="2"></label>
+        </div>
+        <button id="btn-disenar" class="btn btn--primario" type="button" disabled>Crear voz diseñada</button>
       </div>
       <p id="msg-crear" class="mensaje" role="status"></p>
     </section>
@@ -55,6 +77,7 @@
       <h2><span class="paso">2</span>Tus voces</h2>
       <div id="lista-voces" class="lista-voces"><p class="vacio">Aún no has creado ninguna voz.</p></div>
       <div id="detalle-voz" class="oculto">
+        <div id="calidad" class="calidad oculto"></div>
         <div class="metricas" id="metricas"></div>
         <canvas id="grafica-tono" height="160" aria-label="Contorno de tono de la muestra"></canvas>
       </div>
@@ -64,13 +87,14 @@
     <section class="tarjeta" id="hablar">
       <h2><span class="paso">3</span>Texto a voz</h2>
       <label class="campo">
-        <span>Texto</span>
-        <textarea id="texto" rows="4" maxlength="1000">Hola, esta es mi voz generada a partir de texto con Python.</textarea>
+        <span>Texto <output id="contador">0 / 5000</output></span>
+        <textarea id="texto" rows="4" maxlength="5000">Hola, esta es mi voz generada a partir de texto con Python.</textarea>
       </label>
 
       <div class="modo" role="radiogroup" aria-label="Motor de voz">
         <label><input type="radio" name="motor" value="navegador" checked> <b>Navegador</b> — instantáneo, adapta tono y velocidad a tu perfil</label>
-        <label><input type="radio" name="motor" value="servidor"> <b>Clonación neuronal</b> — XTTS-v2 en tu servidor Python, imita tu timbre</label>
+        <label><input type="radio" name="motor" value="xtts"> <b>XTTS-v2</b> — clonación neuronal, 17 idiomas (servidor)</label>
+        <label><input type="radio" name="motor" value="chatterbox"> <b>Chatterbox</b> — clonación neuronal con control de emoción, licencia MIT (servidor)</label>
       </div>
 
       <div id="ajustes-navegador" class="ajustes">
@@ -79,12 +103,20 @@
         <label class="campo"><span>Velocidad <output id="out-rate">1.00</output></span><input id="rate" type="range" min="0.6" max="1.6" step="0.01" value="1"></label>
       </div>
 
-      <div id="ajustes-servidor" class="ajustes oculto">
-        <label class="campo"><span>URL del servidor</span><input id="url-servidor" type="url" placeholder="http://localhost:8000"></label>
-        <label class="campo"><span>Idioma</span>
-          <select id="idioma"><option value="es">Español</option><option value="en">Inglés</option><option value="pt">Portugués</option><option value="fr">Francés</option><option value="it">Italiano</option><option value="de">Alemán</option></select>
-        </label>
-        <button id="btn-probar" class="btn" type="button">Probar conexión</button>
+      <div id="ajustes-servidor" class="oculto">
+        <div class="ajustes">
+          <label class="campo"><span>URL del servidor</span><input id="url-servidor" type="url" placeholder="http://localhost:8000"></label>
+          <label class="campo"><span>Idioma</span>
+            <select id="idioma"><option value="es">Español</option><option value="en">Inglés</option><option value="pt">Portugués</option><option value="fr">Francés</option><option value="it">Italiano</option><option value="de">Alemán</option></select>
+          </label>
+          <button id="btn-probar" class="btn" type="button">Probar conexión</button>
+        </div>
+        <div class="ajustes">
+          <label class="campo solo-xtts"><span>Velocidad <output id="out-velocidad">1.00</output></span><input id="velocidad" type="range" min="0.5" max="2" step="0.05" value="1"></label>
+          <label class="campo solo-chatterbox"><span>Emoción <output id="out-emocion">0.50</output></span><input id="emocion" type="range" min="0" max="2" step="0.05" value="0.5"></label>
+          <label class="campo solo-chatterbox"><span>Apego al ritmo de la muestra <output id="out-fidelidad">0.50</output></span><input id="fidelidad" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+          <label class="campo"><span>Variación <output id="out-temperatura">0.70</output></span><input id="temperatura" type="range" min="0.1" max="1.5" step="0.05" value="0.7"></label>
+        </div>
       </div>
 
       <div class="acciones">
@@ -98,13 +130,56 @@
       <p id="msg-hablar" class="mensaje" role="status"></p>
     </section>
 
+    <!-- 4. Cambiador de voz -->
+    <section class="tarjeta" id="cambiar">
+      <h2><span class="paso">4</span>Cambiador de voz</h2>
+      <p class="ayuda">Graba o sube cualquier frase y Python la transforma al tono y timbre de la voz elegida en el paso 2, conservando tu ritmo y entonación. Todo ocurre en tu navegador.</p>
+      <div class="fuente">
+        <label class="soltar">
+          <input id="archivo-cambio" type="file" accept="audio/*">
+          <strong>Sube la grabación a convertir</strong>
+          <small>Hasta 30 s</small>
+        </label>
+        <div class="grabar">
+          <button id="btn-grabar-cambio" class="btn btn--grabar" type="button">● Grabar</button>
+          <small id="tiempo-cambio">Máx. 30 s</small>
+        </div>
+      </div>
+      <div id="ajustes-cambio" class="oculto">
+        <audio id="audio-fuente" controls></audio>
+        <div class="ajustes">
+          <label class="campo"><span>Tono <output id="out-c-tono">×1.00</output></span><input id="c-tono" type="range" min="0.4" max="2.5" step="0.01" value="1"></label>
+          <label class="campo"><span>Timbre (formantes) <output id="out-c-form">×1.00</output></span><input id="c-form" type="range" min="0.8" max="1.25" step="0.01" value="1"></label>
+        </div>
+        <button id="btn-convertir" class="btn btn--primario" type="button">Convertir a la voz elegida</button>
+      </div>
+      <div id="resultado-cambio" class="oculto">
+        <audio id="audio-cambio" controls></audio>
+        <a id="descargar-cambio" class="btn" download="voz-convertida.wav">Descargar WAV</a>
+      </div>
+      <p id="msg-cambio" class="mensaje" role="status"></p>
+    </section>
+
+    <!-- 5. Verificar -->
+    <section class="tarjeta" id="verificar">
+      <h2><span class="paso">5</span>¿Lo generó una IA?</h2>
+      <p class="ayuda">Todo el audio que produce Conversión (cambiador y servidor) lleva una marca de agua inaudible. Sube un WAV para comprobar si la tiene.</p>
+      <label class="soltar">
+        <input id="archivo-verificar" type="file" accept=".wav,audio/wav,audio/x-wav">
+        <strong>Sube un archivo WAV</strong>
+        <small>La marca no sobrevive a recortes ni a la conversión a MP3</small>
+      </label>
+      <p id="msg-verificar" class="mensaje" role="status"></p>
+    </section>
+
     <section class="tarjeta como">
       <h2>¿Cómo funciona?</h2>
       <ol>
-        <li><b>Python en tu navegador.</b> La página carga <a href="https://pyodide.org" target="_blank" rel="noopener">Pyodide</a> con NumPy y ejecuta <code>python/analisis_voz.py</code>. Tu audio nunca sale de tu equipo.</li>
-        <li><b>Perfil de voz.</b> El algoritmo YIN estima el tono por cada 10 ms; la envolvente de energía da la velocidad en sílabas por segundo y el centroide espectral el brillo del timbre.</li>
-        <li><b>Texto a voz.</b> En modo navegador, el perfil elige la voz base (masculina o femenina) y ajusta tono y velocidad de la Web Speech API.</li>
-        <li><b>Clonación neuronal.</b> El servidor FastAPI de <code>server/</code> usa Coqui XTTS-v2 para hablar con tu timbre a partir de unos segundos de muestra.</li>
+        <li><b>Python en tu navegador.</b> La página carga <a href="https://pyodide.org" target="_blank" rel="noopener">Pyodide</a> con NumPy y ejecuta los módulos de <code>python/</code>. Tu audio no sale de tu equipo salvo que uses el servidor.</li>
+        <li><b>Perfil y calidad.</b> El algoritmo YIN estima el tono cada 10 ms; la envolvente de energía da la velocidad y el centroide espectral el brillo. Se revisa duración, ruido y saturación, como piden los servicios comerciales antes de clonar.</li>
+        <li><b>Texto a voz.</b> En el navegador, el perfil ajusta la voz del sistema. En el servidor, XTTS-v2 o Chatterbox clonan tu timbre; el texto largo se divide en oraciones.</li>
+        <li><b>Cambiador.</b> Un vocoder de fase cambia el tono y el cepstrum separa el timbre (formantes) para moverlo de forma independiente.</li>
+        <li><b>Marca de agua.</b> Se suma ruido pseudoaleatorio 30 dB por debajo de la voz; el verificador lo encuentra por correlación.</li>
       </ol>
       <p class="ayuda">Usa solo tu propia voz o la de personas que te hayan dado permiso.</p>
     </section>

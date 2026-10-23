@@ -134,6 +134,7 @@ def analizar(muestras, sr):
     pico = np.max(np.abs(x))
     if pico < 1e-4:
         raise ValueError("La muestra está en silencio.")
+    saturadas = float(np.mean(np.abs(x) > 0.98))
     x = x / pico
 
     largo = int(SR_ANALISIS * VENTANA_MS / 1000)
@@ -172,12 +173,7 @@ def analizar(muestras, sr):
     centroide = float((mag * freqs).sum() / max(mag.sum(), 1e-12))
 
     f0_media = float(np.median(f0v))
-    if f0_media < 145:
-        registro = "grave"
-    elif f0_media < 200:
-        registro = "media"
-    else:
-        registro = "aguda"
+    registro = registro_de(f0_media)
 
     # Contorno de tono para graficar (máx. 300 puntos)
     paso = max(1, len(f0) // 300)
@@ -195,6 +191,63 @@ def analizar(muestras, sr):
         "segundos_habla": round(segundos_habla, 2),
         "contorno": contorno,
         "contorno_ms": SALTO_MS * paso,
+    }
+    perfil["tts"] = parametros_tts(perfil)
+    # Ruido de fondo: energía de las tramas más silenciosas frente a las de voz
+    snr = 20 * np.log10(np.percentile(rms, 95) / max(np.percentile(rms, 10), 1e-6))
+    perfil["calidad"] = calidad_muestra(segundos_habla, snr, saturadas)
+    return perfil
+
+
+def calidad_muestra(segundos_habla, snr_db, saturadas):
+    """Puntuación 0–100 de la muestra y consejos para mejorarla.
+
+    Los servicios comerciales piden lo mismo: voz clara, sin ruido ni
+    saturación, y suficiente duración (ElevenLabs recomienda 1–2 minutos para
+    la clonación instantánea; XTTS y Chatterbox funcionan desde ~6–10 s).
+    """
+    puntos, consejos = 100, []
+    if segundos_habla < 6:
+        puntos -= 35
+        consejos.append("Graba más voz: al menos 10 segundos hablando.")
+    elif segundos_habla < 10:
+        puntos -= 15
+        consejos.append("Con 10–30 segundos de voz el clon se parece más.")
+    if snr_db < 15:
+        puntos -= 35
+        consejos.append("Hay mucho ruido de fondo: graba en un lugar silencioso.")
+    elif snr_db < 25:
+        puntos -= 15
+        consejos.append("Se oye algo de ruido de fondo; acércate al micrófono.")
+    if saturadas > 0.001:
+        puntos -= 25
+        consejos.append("El audio está saturado: baja el volumen del micrófono.")
+    puntos = max(0, puntos)
+    nivel = "buena" if puntos >= 80 else "aceptable" if puntos >= 50 else "baja"
+    return {"puntos": puntos, "nivel": nivel, "snr_db": round(float(snr_db), 1), "consejos": consejos}
+
+
+def registro_de(f0):
+    if f0 < 145:
+        return "grave"
+    return "media" if f0 < 200 else "aguda"
+
+
+def disenar(f0_media, silabas_seg=SILABAS_REF, expresividad=2.0):
+    """Diseño de voz: crea un perfil a partir de parámetros, sin grabación."""
+    f0 = float(np.clip(f0_media, F0_MIN, F0_MAX))
+    rango = 2 ** (expresividad / 12)  # ±1 desviación típica, en semitonos
+    perfil = {
+        "f0_media": round(f0, 1),
+        "f0_min": round(f0 / rango, 1),
+        "f0_max": round(f0 * rango, 1),
+        "expresividad": round(float(expresividad), 2),
+        "silabas_seg": round(float(silabas_seg), 2),
+        "brillo_hz": None,
+        "registro": registro_de(f0),
+        "disenada": True,
+        "contorno": [],
+        "contorno_ms": SALTO_MS,
     }
     perfil["tts"] = parametros_tts(perfil)
     return perfil

@@ -52,3 +52,11 @@ def test_errores():
         av.analizar(np.zeros(1000), SR)
     with pytest.raises(ValueError, match="silencio"):
         av.analizar(np.zeros(SR * 3), SR)
+
+
+def test_disenar_voz():
+    perfil = av.disenar(230, silabas_seg=7)
+    assert perfil["registro"] == "aguda" and perfil["disenada"]
+    assert perfil["f0_min"] < 230 < perfil["f0_max"]
+    assert perfil["tts"]["genero"] == "femenina" and perfil["tts"]["rate"] > 1
+    assert av.disenar(20)["f0_media"] == av.F0_MIN
